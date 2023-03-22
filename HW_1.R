@@ -1,0 +1,119 @@
+---
+title: "FE515 2022A Assignment 1"
+author: "Abhishek Dixit"
+date: "2/12/2023"
+output: pdf_document
+---
+  
+## Question 1
+# 1.1 Generate a vector x from 5 to 35 with increment 2, and calculate its length.
+x <- seq(5, 35, by = 2)
+x
+length(x)
+
+# 1.2 Use the vector x in 1.1 to generate a 4-by-4 matrix A which filled by rows.
+A <- matrix(x, nrow = 4, ncol = 4, byrow = T)
+A
+
+# 1.3 Calculate the eigenvalues of the matrix A in 1.2.
+eigen(A)$values
+
+# 1.4  Change the 4 elements in first two rows and first two columns of the matrix A to 7. i.e. Let a11, a12, a21, a22 equal to 7.
+A
+A[1, 1] <- 7
+A[2, 1] <- 7
+A[2, 2] <- 7
+A
+
+# 1.5  Calculate the determinant of A in 1.4.
+det(A)
+
+# 1.6 Calculate the inverse of A in 1.4.
+solve(A)
+
+# 1.7 Create a vector b by assigning the first row of A in 1.4 to b.
+b <- A[1, ]
+b
+
+# 1.8 Find y by solving linear equation Ay = b with the A in 1.4 and b in 1.7.
+y <- solve(A)%*%b
+y
+
+# 1.9 For each element of y in 1.8 find the minimum between its value and π/2.
+vmin = c(min(y[1], pi/2) , min(y[2], pi/2) , min(y[3], pi/2) , min(y[4], pi/2))
+vmin
+
+# 1.10 Read the documentation for function diag and use the function to generate the following 10-by-10 square matrix
+di <- 1:10
+di_mat <- matrix(diag(di),ncol=10)
+di_mat
+
+
+## Question 2
+# Consider a Fibonacci sequence Sn = Sn−1 + Sn−2 with the initial value S0 = 0 and the value at stage 1 as S1 = 1. Please determine the values of S3 and S50.
+n <- 51
+fib <- numeric(n)
+fib[1] <- 0
+fib[2] <- 1
+for (i in 3:n)
+{
+  fib[i] <- fib[i-1]+fib[i-2] 
+}
+S3 <- fib[4]
+S50 <- fib[51]
+S3
+S50
+
+
+## Question 3
+# Find all the integers between 1 and 100 which are divisible by both 3 and 5. Store the results into a vector. Print each element of the resulting vector.
+v <- c()
+for (i in 1:100){
+  if (i%%3==0 & i%%5==0){
+    v <- append(v,c(i))
+  }
+}
+
+for (i in v){
+  print(i)
+}
+
+
+## Question 4
+# Create a function with input parameter n and returns a vector. The output vector contains all integers between 1 and n which are divisible by 3 and 5. Please test the function with two cases n = 100 and n = 200.
+myThreeFive <- function(n) {
+  v <- c()
+  for (i in 1:n){
+    if (i%%3==0 & i%%5==0){
+      v <- append(v,c(i))
+    }
+  }
+  return (v)
+}
+
+myThreeFive(100)
+myThreeFive(200)
+
+
+## Question 5
+# Create a function with parameters a and b. In the function body, it tries to find the smallest positive number that is divisible by both a and b. Please test your function with following two cases (a = 3, b = 5) and (a = 6, b = 10).
+myab <- function(a, b){
+  var <- 1
+  while (var%%a!=0 ||  var%%b!=0){
+    var <- var + 1
+  }
+  return (var)
+}
+
+myab(3,5)
+myab(6,10)
+
+
+## Question 6
+# Please find the attached JPM.csv and load this data into R. Make a subset of the loaded data frame. The subset contains open prices, closing prices and adjusted closing prices (They are indicated by Open, Close and Adjusted). Please calculate the mean value of each column of the subset.
+setwd('C:\\Users\\amand\\OneDrive\\Desktop\\FE 515 (R)')
+df <- read.csv(file='JPM-2.csv', header=TRUE, sep=",", na.string = "?")
+View(df)
+df_subset <- subset(df, select = c('JPM.Open','JPM.Close','JPM.Adjusted'))
+View(df_subset)
+apply(df_subset, 2, mean)
