@@ -1,0 +1,264 @@
+---
+title: "2023S FE 515-B Final"
+author: "Abhishek Dixit"
+date: "5/1/2023"
+output:
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+  \usepackage{fvextra}
+  \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+# Question 1: (30 points)
+
+## 1.1
+
+Download the historical prices for the ticker "SPY" from 2019-01-01 until now.
+
+```{r}
+library(quantmod)
+
+getSymbols("SPY", from = "2019-01-01")
+head(SPY)
+```
+
+## 1.2
+
+Calculate the daily log returns for SPY using the adjusted close prices.
+
+```{r}
+SPY.price <- SPY$SPY.Adjusted
+SPY.log.price <- log(SPY.price)
+SPY.log.return <- diff(SPY.log.price)
+head(SPY.log.return)
+```
+
+## 1.3
+
+Plot the daily log returns in red line.
+
+```{r}
+plot(SPY.log.return, type = "l", col = "red", main = "Daily Log Returns for SPY")
+```
+
+# Question 2: (20 points)
+
+## 2.1
+
+Calculate the skewness and kurtosis of the SPY daily log return from Question 1, for both adjusted and unadjusted ones.
+
+```{r}
+library(moments)
+
+# Adjusted -
+SPY.Adjusted.log.return <- log(Cl(SPY))
+SPY.Adjusted.log.return <- na.omit(SPY.Adjusted.log.return)
+SPY.Adjusted.log.return.skew <- skewness(SPY.Adjusted.log.return)
+SPY.Adjusted.log.return.kurtosis <- kurtosis(SPY.Adjusted.log.return)
+
+# Unadjusted - 
+SPY.log.return <- diff(log(Cl(SPY)))
+SPY.log.return <- na.omit(SPY.log.return)
+SPY.log.return.skew <- skewness(SPY.log.return)
+SPY.log.return.kurtosis <- kurtosis(SPY.log.return)
+
+```
+
+## 2.2
+
+Report the results in 2.1 using a 2×2 table (either data frame or matrix) such that: The column names are "SPY.skewness" and "SPY.kurtosis". And the row names are "Unadjusted" and "Adjusted".
+
+```{r}
+results_table <- matrix(c(SPY.log.return.skew, SPY.log.return.kurtosis,
+                          SPY.Adjusted.log.return.skew, SPY.Adjusted.log.return.kurtosis), 
+                        nrow = 2, ncol = 2, byrow = TRUE)
+
+colnames(results_table) <- c("SPY.skewness", "SPY.kurtosis")
+rownames(results_table) <- c("Unadjusted", "Adjusted")
+
+results_table
+```
+
+# Question 3: (50 points)
+
+## 3.1
+
+Download options prices for ticker "SPY" for all expiration dates.
+
+```{r}
+SPY.options <- getOptionChain('SPY',NULL)
+# head(SPY.options)
+```
+
+## 3.2
+
+For calls and puts of each expiration date, add a column of "Price", which is the average of "Bid" and "Ask".
+
+```{r}
+for (i in 1:length(SPY.options)){
+  SPY.options[[i]]$calls$Price <- mean(c(SPY.options[[i]]$calls$Bid, SPY.options[[i]]$calls$Ask))
+  SPY.options[[i]]$puts$Price <- mean(c(SPY.options[[i]]$puts$Bid, SPY.options[[i]]$puts$Ask))
+}
+
+#head(SPY.options)
+```
+
+## 3.3
+
+For calls and puts of each expiration date, add a column of "ImpliedVol", which is the implied volatility of the corresponding options calculated from root finding methods.
+
+```{r}
+
+getSymbols("SPY", from = "2020-01-01", to = Sys.Date())
+SPY.S0 <- tail(SPY$SPY.Adjusted, n = 1)
+r <- 0.07 * 0.01
+SPY.options <- getOptionChain("SPY")
+# strike price
+(SPY.K1 <- SPY.options$calls$Strike[1])
+
+# option price
+(SPY.Price1 <- 0.5*(SPY.options$calls$Bid[1] + SPY.options$calls$Ask[1]))
+
+# time to maturity
+(T1 <- as.numeric(as.Date("2022-07-27") - Sys.Date())/252)
+
+
+bs.call <- function(S0, K, T1, sigma, r){
+  if(T1 <= 0){
+    return(NA)
+  }
+  d1 <- (log(S0/K) + (r+0.5*sigma^2)*T1)/(sigma*sqrt(T1))
+  d2 <- d1 - sigma*sqrt(T1)
+  S0*pnorm(d1) - exp(-r*T1)*K*pnorm(d2)
+}
+
+
+f <- function(x){
+  x^2 - 2
+}
+
+bisection.new <- function(f, a, b, tol = 0.001, N.max = 100){
+  f.a <- f(a)
+  f.b <- f(b)
+  if(is.na(f.a*f.b) || f.a*f.b > 0){
+    return(NA)
+  }else if(f.a == 0){
+    return(a)
+  }else if(f.b == 0){
+    return(b)
+  }else if(is.na(f.a*f.b)){
+    return(NA)
+  }
+  for(n in 1:N.max){
+    c <- (a + b)/2
+    f.c <- f(c)
+    if(f.c == 0 || abs(b - a) < tol){
+      break
+    }
+    if(f.a*f.c < 0){
+      b <- c
+      f.b <- f.c
+    }else{
+      a <- c
+      f.a <- f.c
+    }
+  }
+  return(c)
+}
+
+# implied.vol.call(S0,K,T1,r,10)
+implied.vol.call <- function(S0, K, T1, r, price, method="bisection"){
+  price.diff <- function(sigma) {
+    bs_price <- bs.call(S0, K, T1, sigma, r)
+    if (is.na(bs_price)) {
+      return(1e20)
+    } else {
+      return(bs_price - price)
+    }
+  }
+  if(method == "bisection"){
+    return(bisection.new(price.diff, 0.01, 5))
+  }
+}
+# implied.vol.call(SPY.S0,SPY.K1,T1,r,SPY.Price1)
+
+# Add a column of implied volatility for calls and puts of each expiration date
+# SPY.options <- getOptionChain("SPY", NULL)# all options
+SPY.expiration <- names(SPY.options)# all expiration dates
+T.vec <- (as.Date(SPY.expiration,"%b.%d.%Y")-Sys.Date())/365# calendar day
+T.vec <- as.numeric(T.vec)# all time to maturities
+
+for(i in 1:length(SPY.options)){
+  SPY.options[[i]]$calls$Price <- 0.5*(SPY.options[[i]]$calls$Bid
+                                           + SPY.options[[i]]$calls$Ask)
+  for(j in 1:nrow(SPY.options[[i]]$calls)){
+    SPY.options[[i]]$calls$impliedVol[j] <-
+      implied.vol.call(SPY.S0,
+                       SPY.options[[i]]$calls$Strike[j],
+                       T.vec[i],
+                       r,
+                       SPY.options[[i]]$calls$Price[j])
+  }
+  SPY.options[[i]]$calls <-
+    SPY.options[[i]]$calls[c("Bid", "Ask", "Strike","Price","impliedVol")]
+}
+
+for(i in 1:length(SPY.options)){
+  SPY.options[[i]]$puts$Price <- 0.5*(SPY.options[[i]]$puts$Bid
+                                           + SPY.options[[i]]$puts$Ask)
+  for(j in 1:nrow(SPY.options[[i]]$puts)){
+    SPY.options[[i]]$puts$impliedVol[j] <-
+      implied.vol.call(SPY.S0,
+                       SPY.options[[i]]$puts$Strike[j],
+                       T.vec[i],
+                       r,
+                       SPY.options[[i]]$puts$Price[j])
+  }
+  SPY.options[[i]]$puts <-
+    SPY.options[[i]]$puts[c("Bid", "Ask", "Strike","Price","impliedVol")]
+}
+
+
+#head(SPY.options)
+
+```
+
+## 3.4
+
+Choose 3 expiration date for put options, plot volatility smiles
+
+```{r}
+plot(NA, xlim = c(300,500), ylim = c(0,0.4), xlab = "Strike",
+     ylab = "ImpliedVol") 
+lines(SPY.options[[14]]$calls$Strike,
+      SPY.options[[14]]$calls$impliedVol,col = "red")
+lines(SPY.options[[19]]$calls$Strike,
+      SPY.options[[19]]$calls$impliedVol,col = "green")
+lines(SPY.options[[21]]$calls$Strike,
+      SPY.options[[21]]$calls$impliedVol,col = "blue")
+legend("bottomleft", SPY.expiration[c(14,19,21)],
+       fill = c("red","green","blue"))
+```
+
+## 3.5
+
+Keep fields "Strike","Bid","Ask", "Price", and "ImpliedVol" and save the calls and puts of each expiration date in .csv file. Submit one of the .csv file also.
+
+```{r}
+
+for (i in 1:length(SPY.options)){
+	SPY.options[[i]]$calls <- SPY.options[[i]]$calls[c('Strike', 'Bid', 'Ask', 'Price', 'impliedVol' )]
+	SPY.options[[i]]$puts <- SPY.options[[i]]$puts[c('Strike', 'Bid', 'Ask', 'Price', 'impliedVol' )]
+}
+
+Exp <- names(SPY.options)
+today <- format(Sys.Date())
+
+setwd('C:\\Users\\amand\\OneDrive\\Desktop\\FE 515 (R)\\Final')
+
+for(i in 1:length(Exp)){
+	write.csv(SPY.options[[i]]$calls,file=paste0("SPYdata",today,"Exp",Exp[i],"calls.csv",sep=""))
+	write.csv(SPY.options[[i]]$puts,file=paste0("SPYdata",today,"Exp",Exp[i],"puts.csv",sep=""))
+	}
+```

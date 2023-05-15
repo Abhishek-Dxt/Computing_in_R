@@ -1,0 +1,239 @@
+---
+title: "2023S FE 515-B Midterm"
+author: "Abhishek Dixit"
+date: "3/27/2023"
+output:
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+  \usepackage{fvextra}
+  \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+# Question 1: (50 points)
+
+## 1.1 
+Download daily equity data of JPM and WFC (2012-01-01 to 2023-01-01).
+
+```{r}
+setwd('C:\\Users\\amand\\OneDrive\\Desktop\\FE 515 (R)\\Midterm')
+
+jpm <- read.csv(file='JPM.csv', header=TRUE, sep=",", na.string = "?")
+wfc <- read.csv(file='WFC.csv', header=TRUE, sep=",", na.string = "?")
+```
+
+## 1.2 
+Calculate both the daily log return and weekly log return for each stock. 
+
+```{r}
+# Calculate the daily log return
+
+jpm.price <- jpm$Adjusted
+jpm.log.price <- log(jpm.price)
+jpm.log.return <- diff(jpm.log.price)
+
+wfc.price <- wfc$Adjusted
+wfc.log.price <- log(wfc.price)
+wfc.log.return <- diff(wfc.log.price)
+
+
+# Calculate the weekly log return
+
+library(quantmod)
+
+jpmr = getSymbols(Symbols="JPM", from = "2012-01-01", to = "2023-01-01", auto.assign = FALSE)
+jpm.log.return.weekly <- periodReturn(jpmr, period = "weekly")
+
+wfcr = getSymbols(Symbols="JPM", from = "2012-01-01", to = "2023-01-01", auto.assign = FALSE)
+wfc.log.return.weekly <- periodReturn(wfcr, period = "weekly")
+
+```
+
+## 1.3
+
+ Visualize the distribution of these log returns using hist() function. Use
+par() function to put the four histogram together into one single graph,
+where each histogram is an individual subplot.
+
+```{r}
+par(mfrow = c(2,2))
+hist(jpm.log.return,breaks=40)
+hist(jpm.log.return.weekly,breaks=40)
+
+hist(wfc.log.return,breaks=40)
+hist(wfc.log.return.weekly,breaks=40)  
+```
+
+## 1.4 
+
+Calculate the first four moments, i.e. mean, variance, skewness and kurtosis, for each stock. Store the calculate result in a data frame and report
+the result in a table.
+
+
+```{r}
+library(moments)
+
+jpm.daily.moments <- data.frame(
+  mean = mean(jpm.log.return),
+  variance = var(jpm.log.return),
+  skewness = skewness(jpm.log.return),
+  kurtosis = kurtosis(jpm.log.return)
+)
+
+jpm.weekly.moments <- data.frame(
+  mean = mean(jpm.log.return.weekly),
+  variance = var(jpm.log.return.weekly),
+  skewness = skewness(jpm.log.return.weekly),
+  kurtosis = kurtosis(jpm.log.return.weekly)
+)
+colnames(jpm.weekly.moments) <- colnames(jpm.daily.moments)
+
+wfc.daily.moments <- data.frame(
+  mean = mean(wfc.log.return),
+  variance = var(wfc.log.return),
+  skewness = skewness(wfc.log.return),
+  kurtosis = kurtosis(wfc.log.return)
+)
+
+wfc.weekly.moments <- data.frame(
+  mean = mean(wfc.log.return.weekly),
+  variance = var(wfc.log.return.weekly),
+  skewness = skewness(wfc.log.return.weekly),
+  kurtosis = kurtosis(wfc.log.return.weekly)
+)
+colnames(wfc.weekly.moments) <- colnames(wfc.daily.moments)
+
+moments_table <- rbind(jpm.daily.moments, jpm.weekly.moments, wfc.daily.moments, wfc.weekly.moments, make.row.names=FALSE)
+
+rownames(moments_table) <- c("JPM Daily","JPM Weekly","WFC Daily","WFC Weekly")
+moments_table
+```
+
+## 1.5 
+
+Draw a scatter plot of JPM daily return against WFC daily return. (i.e.
+WFC return on x-axis and JPM return on y-axis)
+
+
+```{r}
+plot(jpm.log.return, wfc.log.return, main = "Scatter Plot", xlab = "JPM Daily return", ylab = "WFC Daily return")
+```
+
+## 1.6
+
+Build a simple linear regression model using the WFC daily return as explanatory variable and the JPM daily return as response variable. Report
+the fitted model using summary( ) function.
+
+```{r}
+library(stats)
+LinReg <- lm(jpm.log.return ~ wfc.log.return)
+summary(LinReg)
+```
+
+## 1.7
+
+Draw a regression line on the scatter plot using the fitted model above.
+Make sure use a different color to draw the regression line.
+
+
+```{r}
+plot(jpm.log.return, wfc.log.return, main = "Scatter Plot", xlab = "JPM Daily return", ylab = "WFC Daily return")
+
+abline(LinReg, col = "red")
+```
+
+
+# Question 2: (50 points)
+
+## 2.1 
+
+Without using packages, create a function of 2 variables “x” and “adjusted” that calculates the sample skewness of “x” using the formulas on
+Lecture 6 page 20 and page 21. When ”adjusted” = TRUE, it returns the
+adjusted skewness of “x”, and FALSE returns the unadjusted one.
+
+```{r}
+skewnessFunc <- function(x, adjusted) {
+  n <- length(x)
+  m2 <- sum((x - mean(x, na.rm = TRUE))^2, na.rm = TRUE) / (n - 1)
+  m3 <- sum((x - mean(x, na.rm = TRUE))^3, na.rm = TRUE) / (n - 1)
+  if (adjusted) {
+    m2_adj <- (n - 1) / n * m2
+    m3_adj <- (n^2 - 1) / (n * (n - 2)) * m3
+    skewness <- m3_adj / m2_adj^(3/2)
+  } else {
+    skewness <- m3 / m2^(3/2)
+  }
+  return(skewness)
+}
+
+```
+
+## 2.2
+
+Without using packages, create a function of 2 variables “x” and ”adjusted” that calculates the sample kurtosis of “x” using the formulas on
+Lecture 6 page 20 and page 23. When “adjusted” = TRUE, it returns the
+adjusted kurtosis of “x”, and FALSE returns the unadjusted one.
+
+```{r}
+kurtosisFunc <- function(x, adjusted = TRUE) {
+  n <- length(x)
+  m2 <- sum((x - mean(x, na.rm = TRUE))^2, na.rm = TRUE) / (n - 1)
+  m4 <- sum((x - mean(x, na.rm = TRUE))^4, na.rm = TRUE) / (n - 1)
+  if (adjusted) {
+    m2_adj <- (n - 1) / n * m2
+    m4_adj <- sum((x - mean(x, na.rm = TRUE))^4, na.rm = TRUE) * (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3) * m2^2) - (3 * (n - 1)^2) / ((n - 2) * (n - 3))
+    kurtosis <- m4_adj + 3
+  } else {
+    kurtosis <- m4 / m2^2
+  }
+  return(kurtosis)
+}
+```
+
+
+## 2.3 
+
+Download historical price for ticker ”SPY” for the whole 2012 and 2013
+years with quantmod package, use its adjusted close price to calculate daily
+log return (Note the adjusted close price is different from the “adjusted”
+for sample moments).
+
+
+```{r}
+getSymbols("SPY", from = "2012-01-01", to = "2013-12-31")
+spy.adj.close <- SPY$SPY.Adjusted
+spy.log.return <- diff(log(spy.adj.close))
+# head(spy.log.return)
+
+```
+
+## 2.4
+
+Calculate the adjusted and unadjusted skewness for the daily log return in 2.3 using the function you defined. (both numbers should be close to -0.15)
+
+
+```{r}
+
+adjusted_skewness <- skewnessFunc(spy.log.return, adjusted = TRUE)
+cat("Adjusted skewness:", adjusted_skewness, "\n")
+
+unadjusted_skewness <- skewnessFunc(spy.log.return, adjusted = FALSE)
+cat("Unadjusted skewness:", unadjusted_skewness, "\n")
+
+```
+
+## 2.5
+
+Calculate the adjusted and unadjusted kurtosis for the daily log return in
+2.3 using the function you defined. (both numbers should be close to 4.1)
+
+
+```{r}
+spy.log.return <- na.omit(spy.log.return)
+
+adjusted_kurtosis <- kurtosisFunc(spy.log.return, adjusted = TRUE)
+cat("Adjusted kurtosis:", adjusted_kurtosis, "\n")
+
+unadjusted_kurtosis <- kurtosisFunc(spy.log.return, adjusted = FALSE)
+cat("Unadjusted kurtosis:", unadjusted_kurtosis, "\n")
+```

@@ -1,0 +1,135 @@
+---
+title: "2023S FE 515-B Assignment 3"
+author: "Abhishek Dixit"
+date: "4/21/2023"
+output:
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+  \usepackage{fvextra}
+  \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+# Question 1: (50 points)
+
+## 1.1 
+Download option prices of ticker VIX for all expiration dates and name
+it VIX.options
+
+```{r}
+library(quantmod)
+
+VIX.options <- getOptionChain('^VIX',NULL)
+
+head(VIX.options)
+
+```
+
+## 1.2
+Download the current price (last quote price) for ˆVIX
+
+```{r}
+current_price <- getQuote('^VIX')$Last
+current_price
+```
+
+## 1.3 
+For calls and puts of VIX.options at each expiration calculate the average
+of Bid and Ask. Create a new column named ‘Price‘ to contain the result.
+
+```{r}
+for (i in 1:length(VIX.options)){
+	VIX.options[[i]]$calls$Price <- (VIX.options[[i]]$calls$Bid + VIX.options[[i]]$calls$Ask)/2
+	VIX.options[[i]]$puts$Price <- (VIX.options[[i]]$puts$Bid + VIX.options[[i]]$puts$Ask)/2
+	}
+	
+head(VIX.options)
+```
+
+## 1.4 
+For calls and puts of VIX.options at each expiration, add a column of InTheMoney, which takes value TRUE when it is in-the-money, and FALSE otherwise. Compare it to ITM column to check your results.
+
+```{r}
+for (i in 1:length(VIX.options)){
+	VIX.options[[i]]$calls$In_The_Money <- VIX.options[[i]]$calls$Strike < current_price
+	VIX.options[[i]]$puts$In_The_Money <- VIX.options[[i]]$puts$Strike > current_price
+}
+
+# Compare InTheMoney and ITM columns
+identical(VIX.options$InTheMoney, VIX.options$ITM)
+
+```
+
+## 1.5
+For calls and puts of VIX at each expiration, delete all the fields except
+Strike, Bid, Ask, Price, and In-The-Money, and save them in .csv files with
+the format ”VIXdata2021-09-26Exp2021-10-08puts.csv”.
+
+```{r}
+for (i in 1:length(VIX.options)){
+	VIX.options[[i]]$calls <- VIX.options[[i]]$calls[c('Strike', 'Bid', 'Ask', 'Price', 'In_The_Money' )]
+	VIX.options[[i]]$puts <- VIX.options[[i]]$puts[c('Strike', 'Bid', 'Ask', 'Price', 'In_The_Money' )]
+}
+
+Exp <- names(VIX.options)
+today <- format(Sys.Date())
+
+setwd('C:\\Users\\amand\\OneDrive\\Desktop\\FE 515 (R)\\HW_3')
+
+for(i in 1:length(Exp)){
+	write.csv(VIX.options[[i]]$calls,file=paste("VIXdata",today,"Exp",Exp[i],"calls.csv",sep=""))
+	write.csv(VIX.options[[i]]$puts,file=paste("VIXdata",today,"Exp",Exp[i],"puts.csv",sep=""))
+	} 
+```
+
+
+# Question 2: (50 points)
+
+## 2.1 
+Using Monte-Carlo Simulation to estimate the put option price using S0 = 100, K = 100, T = 1, σ = 0.2, r = 0.05, you can use number of steps n = 252 and number of paths m = 10000
+
+```{r}
+S0 <- 100
+K <- 100
+T <- 1
+sigma <- 0.2
+r <- 0.05
+n <- 252
+m <- 10000
+
+set.seed(123)
+z <- matrix(rnorm(n*m, mean = 0, sd = 1), ncol = n)
+
+dt <- T/n
+expdt <- exp(-r*dt)
+S <- matrix(0, nrow = m, ncol = n+1)
+S[, 1] <- S0
+for (i in 1:m) {
+  for (j in 2:(n+1)) {
+    S[i, j] <- S[i, j-1] * exp((r-0.5*sigma^2)*dt + sigma*sqrt(dt)*z[i, j-1])
+  }
+}
+
+p <- matrix(0, nrow = m, ncol = 1)
+for (i in 1:m) {
+  p[i] <- exp(-r*T) * max(K - S[i, n+1], 0)
+}
+mc_price <- mean(p)
+
+mc_price
+```
+
+
+## 2.2 
+Implement Black-Scholes formula for pricing the put option
+
+Check the difference between the Black-Scholes price and the Monte-Carlo price.
+
+```{r}
+d1 <- (log(S0/K) + (r + 0.5*sigma^2)*T)/(sigma*sqrt(T))
+d2 <- d1 - sigma*sqrt(T)
+bs_price <- -S0*pnorm(-d1) + exp(-r*T)*K*pnorm(-d2)
+
+difference <- abs(bs_price - mc_price)
+difference
+```
